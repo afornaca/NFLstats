@@ -1,0 +1,4 @@
+#!C:\Users\ajfor\PycharmProjects\nflstats\venv\Scripts\python.exe
+
+import nflgame.update_players
+nflgame.update_players.run()
