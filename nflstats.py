@@ -1,15 +1,31 @@
 
 from tkinter import *
 from tkinter.ttk import *
+import re
 from sportsreference.nfl.teams import Teams
 from sportsreference.nfl.schedule import Schedule
+from sportsreference.nfl.boxscore import Boxscores
+from sportsreference.nfl.boxscore import Boxscore
+
+
+# class NflTeam:
+#     name = ""
+#     abbrev = ""
+#     elo = 0
+#
+#     def __init__(self, name, abbrev, elo):
+#         self.name = name
+#         self.abbrev = abbrev
+#         self.elo = elo
+
+
 
 
 class NflStatsGUI:
     def __init__(self, master):
         self.master = master
         master.title("NFL SHIT HOMIE")
-        master.geometry("500x500")
+        master.geometry("1000x1000")
 
         team_dict = {'Kansas City Chiefs': 'KAN', 'Los Angeles Rams': 'RAM', 'New Orleans Saints': 'NOR',
                      'New England Patriots': 'NWE', 'Indianapolis Colts': 'CLT', 'Pittsburgh Steelers': 'PIT',
@@ -34,6 +50,8 @@ class NflStatsGUI:
                                                                                               team_dict))
         self.close_button = Button(master, text="Close", command=master.quit)
         self.charger_button = Button(master, text="Chargers", command=self.chargers)
+        self.select_week = Button(master, text="WEEK TEST", command=lambda: self.week_schedule(2018, 1, team_dict))
+        self.output_text = Text(master, height=30, width=50)
 
         # GRID LAYOUT
         self.label.grid(row=0, column=0, sticky=W)
@@ -43,6 +61,8 @@ class NflStatsGUI:
         self.sched_button.grid(row=2, column=1, sticky=E)
         self.close_button.grid(row=5, column=0)
         self.charger_button.grid(row=3, column=0)
+        self.select_week.grid(row=6, column=0)
+        self.output_text.grid(row=7, column=0)
 
     # TEST METHOD
     def chargers(self):
@@ -59,15 +79,29 @@ class NflStatsGUI:
         for key, value in team_dict.items():
             if key == teamname:
                 team_abbrev = team_dict[key]
-        print(teamname, year, 'schedule:')
+        self.output_text.delete(1.0, "end-1c")
+        self.output_text.insert("end-1c", teamname + " " + year + " Schedule:\n")
         team_schedule = Schedule(team_abbrev, year)
         for game in team_schedule:
-            print(game.date + ': ', game.opponent_name)
+            self.output_text.insert("end-1c", game.date + ": " + game.opponent_name + "\n")
+
+    def week_schedule(self, year, week, team_dict):
+        p = re.compile("'(2018\\d+\\w+)'")
+        selected_week = Boxscores(week, year)
+        game_codes = p.findall(str(selected_week.games.values()))
+
+        self.output_text.delete(1.0, "end-1c")
+        for code in game_codes:
+            game_data = Boxscore(code)
+            self.output_text.insert("end-1c", game_data.winning_abbr + " " + str(game_data.home_points) + " " +
+                                    game_data.losing_abbr + " " + str(game_data.away_points) + "\n")
+
 
 
 root = Tk()
 my_gui = NflStatsGUI(root)
 root.mainloop()
+
 
 
 ######################################################################################
