@@ -1,4 +1,3 @@
-
 from tkinter import *
 from tkinter.ttk import *
 import re
@@ -7,25 +6,25 @@ from sportsreference.nfl.schedule import Schedule
 from sportsreference.nfl.boxscore import Boxscores
 from sportsreference.nfl.boxscore import Boxscore
 
-
-# class NflTeam:
-#     name = ""
-#     abbrev = ""
-#     elo = 0
-#
-#     def __init__(self, name, abbrev, elo):
-#         self.name = name
-#         self.abbrev = abbrev
-#         self.elo = elo
+team_elo_list = []
 
 
+class NflTeam:
+    name = ""
+    abbrev = ""
+    elo = 1500
+
+    def __init__(self, name, abbreviation, elo):
+        self.name = name
+        self.abbreviation = abbreviation
+        self.elo = elo
 
 
 class NflStatsGUI:
     def __init__(self, master):
         self.master = master
-        master.title("NFL SHIT HOMIE")
-        master.geometry("1000x1000")
+        master.title("STILL TESTING STUFF OUT :)")
+        master.geometry("750x750")
 
         team_dict = {'Kansas City Chiefs': 'KAN', 'Los Angeles Rams': 'RAM', 'New Orleans Saints': 'NOR',
                      'New England Patriots': 'NWE', 'Indianapolis Colts': 'CLT', 'Pittsburgh Steelers': 'PIT',
@@ -51,6 +50,7 @@ class NflStatsGUI:
         self.close_button = Button(master, text="Close", command=master.quit)
         self.charger_button = Button(master, text="Chargers", command=self.chargers)
         self.select_week = Button(master, text="WEEK TEST", command=lambda: self.week_schedule(2018, 1, team_dict))
+        self.gen_elo_button = Button(master, text="Generate Elo Rankings", command=lambda: self.generate_elo(team_dict))
         self.output_text = Text(master, height=30, width=50)
 
         # GRID LAYOUT
@@ -62,7 +62,8 @@ class NflStatsGUI:
         self.close_button.grid(row=5, column=0)
         self.charger_button.grid(row=3, column=0)
         self.select_week.grid(row=6, column=0)
-        self.output_text.grid(row=7, column=0)
+        self.gen_elo_button.grid(row=7, column=0)
+        self.output_text.grid(row=8, column=0)
 
     # TEST METHOD
     def chargers(self):
@@ -86,6 +87,8 @@ class NflStatsGUI:
             self.output_text.insert("end-1c", game.date + ": " + game.opponent_name + "\n")
 
     def week_schedule(self, year, week, team_dict):
+        winner_name = ""
+        loser_name = ""
         p = re.compile("'(2018\\d+\\w+)'")
         selected_week = Boxscores(week, year)
         game_codes = p.findall(str(selected_week.games.values()))
@@ -93,16 +96,48 @@ class NflStatsGUI:
         self.output_text.delete(1.0, "end-1c")
         for code in game_codes:
             game_data = Boxscore(code)
-            self.output_text.insert("end-1c", game_data.winning_abbr + " " + str(game_data.home_points) + " " +
-                                    game_data.losing_abbr + " " + str(game_data.away_points) + "\n")
+            for name, abbrev in team_dict.items():
+                if abbrev == game_data.winning_abbr:
+                    winner_name = name
+            for name, abbrev in team_dict.items():
+                if abbrev == game_data.losing_abbr:
+                    loser_name = name
+            self.output_text.insert("end-1c", winner_name + " " + str(game_data.home_points) + " " +
+                                    loser_name + " " + str(game_data.away_points) + "\n")
+
+    def generate_elo(self, team_dict):
+        temp_name = ""
+        p = re.compile("'(2018\\d+\\w+)'")
+        selected_week = Boxscores(1, 2018)
+        game_codes = p.findall(str(selected_week.games.values()))
+
+        self.output_text.delete(1.0, "end-1c")
+        for code in game_codes:
+            game_data = Boxscore(code)
+            for name, abbrev in team_dict.items():
+                if abbrev == game_data.winning_abbr:
+                    temp_name = name
+            new_team = NflTeam(temp_name, game_data.winning_abbr, 1500)
+            team_elo_list.append(new_team)
+
+            for name, abbrev in team_dict.items():
+                if abbrev == game_data.losing_abbr:
+                    temp_name = name
+            new_team = NflTeam(temp_name, game_data.losing_abbr, 1500)
+            team_elo_list.append(new_team)
+
+        for i in team_elo_list:
+            if i.name == "New England Patriots":
+                i.elo = 1700
+        team_elo_list.sort(key=lambda x: x.elo, reverse=True)
+        for z in team_elo_list:
+            self.output_text.insert("end-1c", str(z.name) + " " + str(z.abbreviation) + " " + str(z.elo) + '\n')
 
 
 
 root = Tk()
 my_gui = NflStatsGUI(root)
 root.mainloop()
-
-
 
 ######################################################################################
 # Adds teams and their total yards to a dictionary and prints them in ordered form
