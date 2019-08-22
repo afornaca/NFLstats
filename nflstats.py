@@ -1,3 +1,4 @@
+import math
 from tkinter import *
 from tkinter.ttk import *
 import re
@@ -14,10 +15,9 @@ class NflTeam:
     abbrev = ""
     elo = 1500
 
-    def __init__(self, name, abbreviation, elo):
+    def __init__(self, name, abbreviation):
         self.name = name
         self.abbreviation = abbreviation
-        self.elo = elo
 
 
 class NflStatsGUI:
@@ -35,7 +35,8 @@ class NflStatsGUI:
                      'Minnesota Vikings': 'MIN', 'Cleveland Browns': 'CLE', 'San Francisco 49ers': 'SFO',
                      'Detroit Lions': 'DET', 'Miami Dolphins': 'MIA', 'Tennessee Titans': 'OTI',
                      'Oakland Raiders': 'RAI', 'Washington Redskins': 'WAS', 'Buffalo Bills': 'BUF',
-                     'Jacksonville Jaguars': 'JAX', 'Arizona Cardinals': 'CRD', 'Denver Broncos': 'DEN'
+                     'Jacksonville Jaguars': 'JAX', 'Arizona Cardinals': 'CRD', 'Denver Broncos': 'DEN',
+                     'Dallas Cowboys': 'DAL', 'New York Jets': 'NYJ'
                      }
 
         # GUI ELEMENTS
@@ -50,7 +51,7 @@ class NflStatsGUI:
         self.close_button = Button(master, text="Close", command=master.quit)
         self.charger_button = Button(master, text="Chargers", command=self.chargers)
         self.select_week = Button(master, text="WEEK TEST", command=lambda: self.week_schedule(2018, 1, team_dict))
-        self.gen_elo_button = Button(master, text="Generate Elo Rankings", command=lambda: self.generate_elo(team_dict))
+        self.calculate_elo_button = Button(master, text="Calculate Elo", command=lambda: self.calculate_elo(team_dict))
         self.output_text = Text(master, height=30, width=50)
 
         # GRID LAYOUT
@@ -62,7 +63,7 @@ class NflStatsGUI:
         self.close_button.grid(row=5, column=0)
         self.charger_button.grid(row=3, column=0)
         self.select_week.grid(row=6, column=0)
-        self.gen_elo_button.grid(row=7, column=0)
+        self.calculate_elo_button.grid(row=7, column=0)
         self.output_text.grid(row=8, column=0)
 
     # TEST METHOD
@@ -105,34 +106,38 @@ class NflStatsGUI:
             self.output_text.insert("end-1c", winner_name + " " + str(game_data.home_points) + " " +
                                     loser_name + " " + str(game_data.away_points) + "\n")
 
-    def generate_elo(self, team_dict):
-        temp_name = ""
+
+    def calculate_elo(self, team_dict):
+        # CONSTANT K FOR ELO ALGO
+        k = 30
         p = re.compile("'(2018\\d+\\w+)'")
-        selected_week = Boxscores(1, 2018)
-        game_codes = p.findall(str(selected_week.games.values()))
+        team_objects = {}
 
-        self.output_text.delete(1.0, "end-1c")
-        for code in game_codes:
-            game_data = Boxscore(code)
-            for name, abbrev in team_dict.items():
-                if abbrev == game_data.winning_abbr:
-                    temp_name = name
-            new_team = NflTeam(temp_name, game_data.winning_abbr, 1500)
-            team_elo_list.append(new_team)
+        for name, abbrev in team_dict.items():
+            new_team = NflTeam(name, abbrev)
+            team_objects.update({abbrev: new_team})
 
-            for name, abbrev in team_dict.items():
-                if abbrev == game_data.losing_abbr:
-                    temp_name = name
-            new_team = NflTeam(temp_name, game_data.losing_abbr, 1500)
-            team_elo_list.append(new_team)
+        # will iterate through weeks 1-17
+        for week in range(1, 18):
+            print("----- WEEK:", week, "-----")
+            selected_week = Boxscores(week, 2018)
+            game_codes = p.findall(str(selected_week.games.values()))
 
-        for i in team_elo_list:
-            if i.name == "New England Patriots":
-                i.elo = 1700
-        team_elo_list.sort(key=lambda x: x.elo, reverse=True)
-        for z in team_elo_list:
-            self.output_text.insert("end-1c", str(z.name) + " " + str(z.abbreviation) + " " + str(z.elo) + '\n')
+            for game in game_codes:
+                box = Boxscore(game)
+                winner = team_objects[box.winning_abbr]
+                loser = team_objects[box.losing_abbr]
+                prob_winner = self.probability(loser.elo, winner.elo)
+                prob_loser = self.probability(winner.elo, loser.elo)
 
+                winner.elo = winner.elo + k * (1 - prob_winner)
+                loser.elo = loser.elo + k * (0 - prob_loser)
+
+                print(winner.name, str(winner.elo))
+                print(loser.name, str(loser.elo))
+
+    def probability(self, team1elo, team2elo):
+        return 1.0 * 1.0 / (1 + 1.0 * math.pow(10, 1.0 * (team1elo - team2elo) / 400))
 
 
 root = Tk()
