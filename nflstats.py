@@ -86,7 +86,7 @@ class NflStatsGUI:
         self.output_text.insert("end-1c", teamname + " " + year + " Schedule:\n")
         team_schedule = Schedule(team_abbrev, year)
         for game in team_schedule:
-            self.output_text.insert("end-1c", game.date + ": " + game.opponent_name + "\n")
+            self.output_text.insert("end-1c", '{:15s} {:24s}\n'.format(game.date + ":", game.opponent_name))
 
     def week_schedule(self, year, week, team_dict):
         winner_name = ""
@@ -108,12 +108,11 @@ class NflStatsGUI:
                                     loser_name + " " + str(game_data.away_points) + "\n")
 
     def calculate_elo(self, team_dict):
-        self.output_text.delete(1.0, "end-1c")
         # CONSTANT K FOR ELO ALGO
         k = 30
         p = re.compile("'(\\d{4}\\d+\\w+)'")
         team_objects = {}
-
+        self.output_text.delete(1.0, "end-1c")
         for name, abbrev in team_dict.items():
             new_team = NflTeam(name, abbrev)
             team_objects.update({abbrev: new_team})
@@ -122,9 +121,9 @@ class NflStatsGUI:
                 if year > 2015:
                     team.elo = team.elo * (2 / 3) + 1500 * (1 / 3)
                     print("############", team.name, str(team.elo), "########")
-            # will iterate through weeks 1-17
+            # will iterate through weeks 1-21
             for week in range(1, 22):
-                print("----- WEEK:", week, "-----")
+                print("----- YEAR ", year, " | WEEK:", week, "-----")
                 selected_week = Boxscores(week, year)
                 game_codes = p.findall(str(selected_week.games.values()))
 
@@ -132,9 +131,10 @@ class NflStatsGUI:
                     box = Boxscore(game)
                     winner = team_objects[box.winning_abbr]
                     loser = team_objects[box.losing_abbr]
+
+                    # elo
                     prob_winner = self.probability(loser.elo, winner.elo)
                     prob_loser = self.probability(winner.elo, loser.elo)
-
                     winner.elo = winner.elo + k * (1 - prob_winner)
                     loser.elo = loser.elo + k * (0 - prob_loser)
 
@@ -154,7 +154,6 @@ class NflStatsGUI:
                     name_for_print = name
                     self.output_text.insert("end-1c", '{:4s}{:24s}{:9s}\n'.format(str(rank) + '.', name_for_print, str(tobj.elo)))
                     rank = rank + 1
-
 
     def probability(self, team1elo, team2elo):
         return 1.0 * 1.0 / (1 + 1.0 * math.pow(10, 1.0 * (team1elo - team2elo) / 400))
