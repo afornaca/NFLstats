@@ -158,7 +158,7 @@ class NflStatsGUI:
                     print(winner.name, str(welo))
                     print(loser.name, str(lelo))
 
-            if year == 2019:
+            if year == end_year:
                 for abbrev, team in team_objects.items():
                     team.elo = team.elo * (2 / 3) + 1500 * (1 / 3)
 
