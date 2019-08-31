@@ -1,4 +1,6 @@
 import math
+import xlsxwriter
+from xlsxwriter import Workbook
 from collections import OrderedDict
 from tkinter import *
 from tkinter.ttk import *
@@ -25,7 +27,7 @@ class NflStatsGUI:
     def __init__(self, master):
         self.master = master
         master.title("STILL TESTING STUFF OUT :)")
-        master.geometry("750x750")
+        master.geometry("600x900")
 
         team_dict = {'Kansas City Chiefs': 'KAN', 'Los Angeles Rams': 'RAM', 'New Orleans Saints': 'NOR',
                      'New England Patriots': 'NWE', 'Indianapolis Colts': 'CLT', 'Pittsburgh Steelers': 'PIT',
@@ -41,7 +43,7 @@ class NflStatsGUI:
                      }
 
         # GUI ELEMENTS
-        self.label = Label(master, text="Select a team:")
+        self.select_team_label = Label(master, text="Select a team:")
         self.team_combo = Combobox(master, values=list(team_dict.keys()))
         self.year_label = Label(master, text="Enter a year:")
         self.year_entry = Entry(master, width=4)
@@ -49,33 +51,30 @@ class NflStatsGUI:
         self.sched_button = Button(master, text="Get Schedule", command=lambda: self.schedule(self.team_combo.get(),
                                                                                               self.year_entry.get(),
                                                                                               team_dict))
-        self.close_button = Button(master, text="Close", command=master.quit)
-        self.charger_button = Button(master, text="Chargers", command=self.chargers)
         self.select_week = Button(master, text="WEEK TEST", command=lambda: self.week_schedule(2018, 1, team_dict))
-        self.calculate_elo_button = Button(master, text="Calculate Elo", command=lambda: self.calculate_elo(team_dict))
+        self.elo_startyear_label = Label(master, text="Start Year:")
+        self.elo_startyear_entry = Entry(master, width=4)
+        self.elo_endyear_label = Label(master, text="End Year:")
+        self.elo_endyear_entry = Entry(master, width=4)
+        self.calculate_elo_button = Button(master, text="Calculate Elo",
+                                           command=lambda: self.calculate_elo(team_dict,
+                                                                              self.elo_startyear_entry.get(),
+                                                                              self.elo_endyear_entry.get()))
         self.output_text = Text(master, height=40, width=50)
 
         # GRID LAYOUT
-        self.label.grid(row=0, column=0, sticky=W)
-        self.team_combo.grid(row=0, column=1)
+        self.select_team_label.grid(row=0, column=0, sticky=W)
+        self.team_combo.grid(row=0, column=1, sticky=W)
         self.year_label.grid(row=1, column=0, sticky=W)
-        self.year_entry.grid(row=1, column=1, sticky=E)
-        self.sched_button.grid(row=2, column=1, sticky=E)
-        self.close_button.grid(row=5, column=0)
-        self.charger_button.grid(row=3, column=0)
-        self.select_week.grid(row=6, column=0)
-        self.calculate_elo_button.grid(row=7, column=0)
-        self.output_text.grid(row=8, column=0)
-
-    # TEST METHOD
-    def chargers(self):
-        for team in Teams('2018'):
-            schedule = team.schedule
-            if 'Chargers' in team.name:
-                print(team.name)
-                for game in schedule:
-                    print(str(game.date) + ": PF: ", str(game.points_scored) + " | PA: ",
-                          str(game.points_allowed) + " vs. ", game.opponent_name)
+        self.year_entry.grid(row=1, column=1, sticky=W)
+        self.sched_button.grid(row=2, column=0, sticky=W)
+        self.select_week.grid(row=3, column=0)
+        self.elo_startyear_label.grid(row=4, column=0)
+        self.elo_startyear_entry.grid(row=4, column=1, sticky=W)
+        self.elo_endyear_label.grid(row=5, column=0)
+        self.elo_endyear_entry.grid(row=5, column=1, sticky=W)
+        self.calculate_elo_button.grid(row=6, column=0, sticky=E)
+        self.output_text.grid(row=7, column=1)
 
     def schedule(self, teamname, year, team_dict):
         team_abbrev = ''
@@ -107,8 +106,15 @@ class NflStatsGUI:
             self.output_text.insert("end-1c", winner_name + " " + str(game_data.home_points) + " " +
                                     loser_name + " " + str(game_data.away_points) + "\n")
 
-    def calculate_elo(self, team_dict):
+    def calculate_elo(self, team_dict, start_year, end_year):
         # CONSTANT K FOR ELO ALGO
+
+        excel_name = 'NFLelo' + start_year + '-' + end_year + '.xlsx'
+        wb = xlsxwriter.Workbook(excel_name)
+
+        start_year = int(start_year)
+        end_year = int(end_year)
+
         k = 30
         p = re.compile("'(\\d{4}\\d+\\w+)'")
         team_objects = {}
@@ -116,9 +122,18 @@ class NflStatsGUI:
         for name, abbrev in team_dict.items():
             new_team = NflTeam(name, abbrev)
             team_objects.update({abbrev: new_team})
-        for year in range(2015, 2019):
+        for year in range(start_year, end_year + 1):
+            # Initialize new excel sheet
+            sheet = wb.add_worksheet(str(year))
+            sheet.set_column(0, 0, 24)
+            sheet.set_column(1, 1, 10)
+            sheet.write(0, 0, "Team")
+            sheet.write(0, 1, "Elo Rating")
+            sheet.write(0, 2, "Wins")
+            sheet.write(0, 3, "Losses")
+
             for abbrev, team in team_objects.items():
-                if year > 2015:
+                if year > start_year:
                     team.elo = team.elo * (2 / 3) + 1500 * (1 / 3)
                     print("############", team.name, str(team.elo), "########")
             # will iterate through weeks 1-21
@@ -143,17 +158,33 @@ class NflStatsGUI:
                     print(winner.name, str(welo))
                     print(loser.name, str(lelo))
 
-        for abbrev, team in team_objects.items():
-            team.elo = team.elo * (2 / 3) + 1500 * (1 / 3)
+            if year == 2019:
+                for abbrev, team in team_objects.items():
+                    team.elo = team.elo * (2 / 3) + 1500 * (1 / 3)
+
+            n = 1
+            excel_dict = OrderedDict(sorted(team_objects.items(), key=lambda x: x[1].elo, reverse=True))
+            for abv, tobj in excel_dict.items():
+                for name, ab in team_dict.items():
+                    if ab == abv:
+                        sheet.write(n, 0, name)
+                        sheet.write(n, 1, tobj.elo)
+                        for team in Teams(year):
+                            if team.abbreviation == abv:
+                                sheet.write(n, 2, team.wins)
+                                sheet.write(n, 3, team.losses)
+                        n = n + 1
 
         rank = 1
         newdict = OrderedDict(sorted(team_objects.items(), key=lambda x: x[1].elo, reverse=True))
         for abv, tobj in newdict.items():
             for name, ab in team_dict.items():
                 if ab == abv:
-                    name_for_print = name
-                    self.output_text.insert("end-1c", '{:4s}{:24s}{:9s}\n'.format(str(rank) + '.', name_for_print, str(tobj.elo)))
+                    self.output_text.insert("end-1c", '{:4s}{:24s}{:9s}\n'.format(str(rank) + '.', name, str(tobj.elo)))
                     rank = rank + 1
+
+        # Close Excel Workbook
+        wb.close()
 
     def probability(self, team1elo, team2elo):
         return 1.0 * 1.0 / (1 + 1.0 * math.pow(10, 1.0 * (team1elo - team2elo) / 400))
