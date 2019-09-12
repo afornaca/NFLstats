@@ -12,6 +12,7 @@ from sportsreference.nfl.schedule import Schedule
 from sportsreference.nfl.boxscore import Boxscores
 from sportsreference.nfl.boxscore import Boxscore
 
+
 team_elo_list = []
 
 
@@ -61,14 +62,17 @@ class NflStatsGUI:
         self.calculate_elo_button = Button(master, text="Calculate Elo",
                                            command=lambda: self.calculate_elo(team_dict,
                                                                               self.elo_startyear_entry.get(),
-                                                                              self.elo_endyear_entry.get()))
+                                                                              self.elo_endyear_entry.get(),
+                                                                              self.elo_endweek_entry.get()))
+        self.elo_endweek_label = Label(master, text="End Week:")
+        self.elo_endweek_entry = Entry(master, width=2)
         self.win_probability_week_label = Label(master, text="Win Prob Week:")
         self.win_probability_week_entry = Entry(master, width=2)
         self.win_probability_button = Button(master, text="Win Probabilities",
                                              command=lambda: self.generate_probabilities(
                                                  self.win_probability_week_entry.get(),
                                                  team_dict))
-        self.output_text = Text(master, height=50, width=60)
+        self.output_text = Text(master, height=40, width=60)
         self.scroll = Scrollbar(master)
         self.output_text.config(yscrollcommand=self.scroll.set)
         self.scroll.config(command=self.output_text.yview)
@@ -84,6 +88,8 @@ class NflStatsGUI:
         self.elo_startyear_entry.grid(row=4, column=1, sticky=W)
         self.elo_endyear_label.grid(row=5, column=0)
         self.elo_endyear_entry.grid(row=5, column=1, sticky=W)
+        self.elo_endweek_label.grid(row=5, column=2, sticky=W)
+        self.elo_endweek_entry.grid(row=5, column=3)
         self.calculate_elo_button.grid(row=6, column=0, sticky=E)
         self.win_probability_week_label.grid(row=7, column=0, sticky=W)
         self.win_probability_week_entry.grid(row=7, column=1)
@@ -106,6 +112,7 @@ class NflStatsGUI:
     def week_schedule(self, year, week, team_dict):
         winner_name = ""
         loser_name = ""
+        week = 0
         p = re.compile("'(\\d{4}\\d+\\w+)'")
         selected_week = Boxscores(week, year)
         game_codes = p.findall(str(selected_week.games.values()))
@@ -122,10 +129,11 @@ class NflStatsGUI:
             self.output_text.insert("end-1c", winner_name + " " + str(game_data.home_points) + " " +
                                     loser_name + " " + str(game_data.away_points) + "\n")
 
-    def calculate_elo(self, team_dict, start_year, end_year):
+    def calculate_elo(self, team_dict, start_year, end_year, end_week):
         # CONSTANT K FOR ELO ALGO
-
-        excel_name = 'NFLelo' + start_year + '-' + end_year + '.xlsx'
+        endw = 22
+        week = 1
+        excel_name = 'NFLelo' + start_year + '-' + end_year + 'week' + end_week + '.xlsx'
         wb = xlsxwriter.Workbook(excel_name)
 
         start_year = int(start_year)
@@ -153,7 +161,9 @@ class NflStatsGUI:
                     team.elo = team.elo * (2 / 3) + 1500 * (1 / 3)
                     print("############", team.name, str(team.elo), "########")
             # will iterate through weeks 1-21
-            for week in range(1, 22):
+            if year == end_year:
+                endw = int(end_week) + 1
+            for week in range(1, endw):
                 print("----- YEAR ", year, " | WEEK:", week, "-----")
                 selected_week = Boxscores(week, year)
                 game_codes = p.findall(str(selected_week.games.values()))
@@ -174,7 +184,7 @@ class NflStatsGUI:
                     print(winner.name, str(welo))
                     print(loser.name, str(lelo))
 
-            if year == end_year:
+            if year == end_year and week == 21:
                 for abbrev, team in team_objects.items():
                     team.elo = team.elo * (2 / 3) + 1500 * (1 / 3)
 
@@ -209,7 +219,7 @@ class NflStatsGUI:
         self.output_text.delete(1.0, "end-1c")
         home_team = ""
         away_team = ""
-        data = pandas.read_excel(r'NFLelo2015-2018.xlsx', sheet_name='2018')
+        data = pandas.read_excel(r'NFLelo2015-2019week1.xlsx', sheet_name='2019')
         df = pandas.DataFrame(data, columns=['Team', 'Elo Rating'])
         ratings_dict = dict(zip(df['Team'], df['Elo Rating']))
 
@@ -222,8 +232,10 @@ class NflStatsGUI:
             for name, abv in team_dict.items():
                 if abv == box.home_abbreviation.upper():
                     home_team = name
+                    print(home_team)
                 if abv == box.away_abbreviation.upper():
                     away_team = name
+                    print(away_team)
             elo_difference = ratings_dict[home_team] - ratings_dict[away_team]
             spread = str(round(-elo_difference / 25))
             if spread == '0':
