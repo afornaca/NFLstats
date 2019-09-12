@@ -1,5 +1,7 @@
 import math
 import xlsxwriter
+import pandas
+import xlrd
 from xlsxwriter import Workbook
 from collections import OrderedDict
 from tkinter import *
@@ -27,7 +29,7 @@ class NflStatsGUI:
     def __init__(self, master):
         self.master = master
         master.title("STILL TESTING STUFF OUT :)")
-        master.geometry("600x900")
+        master.geometry("700x900")
 
         team_dict = {'Kansas City Chiefs': 'KAN', 'Los Angeles Rams': 'RAM', 'New Orleans Saints': 'NOR',
                      'New England Patriots': 'NWE', 'Indianapolis Colts': 'CLT', 'Pittsburgh Steelers': 'PIT',
@@ -60,7 +62,16 @@ class NflStatsGUI:
                                            command=lambda: self.calculate_elo(team_dict,
                                                                               self.elo_startyear_entry.get(),
                                                                               self.elo_endyear_entry.get()))
-        self.output_text = Text(master, height=40, width=50)
+        self.win_probability_week_label = Label(master, text="Win Prob Week:")
+        self.win_probability_week_entry = Entry(master, width=2)
+        self.win_probability_button = Button(master, text="Win Probabilities",
+                                             command=lambda: self.generate_probabilities(
+                                                 self.win_probability_week_entry.get(),
+                                                 team_dict))
+        self.output_text = Text(master, height=50, width=60)
+        self.scroll = Scrollbar(master)
+        self.output_text.config(yscrollcommand=self.scroll.set)
+        self.scroll.config(command=self.output_text.yview)
 
         # GRID LAYOUT
         self.select_team_label.grid(row=0, column=0, sticky=W)
@@ -74,7 +85,12 @@ class NflStatsGUI:
         self.elo_endyear_label.grid(row=5, column=0)
         self.elo_endyear_entry.grid(row=5, column=1, sticky=W)
         self.calculate_elo_button.grid(row=6, column=0, sticky=E)
-        self.output_text.grid(row=7, column=1)
+        self.win_probability_week_label.grid(row=7, column=0, sticky=W)
+        self.win_probability_week_entry.grid(row=7, column=1)
+        self.win_probability_button.grid(row=7, column=2)
+        self.output_text.grid(row=8, column=1)
+        self.scroll.grid(row=8, column=2, sticky=N+S+W)
+
 
     def schedule(self, teamname, year, team_dict):
         team_abbrev = ''
@@ -188,6 +204,42 @@ class NflStatsGUI:
 
     def probability(self, team1elo, team2elo):
         return 1.0 * 1.0 / (1 + 1.0 * math.pow(10, 1.0 * (team1elo - team2elo) / 400))
+
+    def generate_probabilities(self, week, team_dict):
+        self.output_text.delete(1.0, "end-1c")
+        home_team = ""
+        away_team = ""
+        data = pandas.read_excel(r'NFLelo2015-2018.xlsx', sheet_name='2018')
+        df = pandas.DataFrame(data, columns=['Team', 'Elo Rating'])
+        ratings_dict = dict(zip(df['Team'], df['Elo Rating']))
+
+        p = re.compile("'(\\d{4}\\d+\\w+)'")
+        selected_week = Boxscores(int(week), 2019)
+        game_codes = p.findall(str(selected_week.games.values()))
+
+        for game in game_codes:
+            box = Boxscore(game)
+            for name, abv in team_dict.items():
+                if abv == box.home_abbreviation.upper():
+                    home_team = name
+                if abv == box.away_abbreviation.upper():
+                    away_team = name
+            elo_difference = ratings_dict[home_team] - ratings_dict[away_team]
+            spread = str(round(-elo_difference / 25))
+            if spread == '0':
+                spread = 'even'
+            if '-' not in spread:
+                if spread == 'even':
+                    spread = spread
+                else:
+                    spread = '+' + spread
+
+            home_probability = round(100 * (1 / ((math.pow(10, -elo_difference / 400)) + 1)), 2)
+            away_probability = round(100 - home_probability, 2)
+            self.output_text.insert("end-1c", '{:24s}{:5}\n{:24s}{:5}\nElo-based Spread: {:3}\n\n'.format(away_team,
+                                                                                    away_probability,
+                                                                                    home_team, home_probability,
+                                                                                    spread))
 
 
 root = Tk()
