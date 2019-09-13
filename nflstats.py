@@ -1,4 +1,5 @@
 import math
+import json
 import xlsxwriter
 import pandas
 import xlrd
@@ -11,7 +12,6 @@ from sportsreference.nfl.teams import Teams
 from sportsreference.nfl.schedule import Schedule
 from sportsreference.nfl.boxscore import Boxscores
 from sportsreference.nfl.boxscore import Boxscore
-
 
 team_elo_list = []
 
@@ -32,22 +32,12 @@ class NflStatsGUI:
         master.title("STILL TESTING STUFF OUT :)")
         master.geometry("700x900")
 
-        team_dict = {'Kansas City Chiefs': 'KAN', 'Los Angeles Rams': 'RAM', 'New Orleans Saints': 'NOR',
-                     'New England Patriots': 'NWE', 'Indianapolis Colts': 'CLT', 'Pittsburgh Steelers': 'PIT',
-                     'Seattle Seahawks': 'SEA', 'Los Angeles Chargers': 'SDG', 'Chicago Bears': 'CHI',
-                     'Atlanta Falcons': 'ATL', 'Houston Texans': 'HTX', 'Tampa Bay Buccaneers': 'TAM',
-                     'Baltimore Ravens': 'RAV', 'Carolina Panthers': 'CAR', 'Green Bay Packers': 'GNB',
-                     'New York Giants': 'NYG', 'Cincinnati Bengals': 'CIN', 'Philadelphia Eagles': 'PHI',
-                     'Minnesota Vikings': 'MIN', 'Cleveland Browns': 'CLE', 'San Francisco 49ers': 'SFO',
-                     'Detroit Lions': 'DET', 'Miami Dolphins': 'MIA', 'Tennessee Titans': 'OTI',
-                     'Oakland Raiders': 'RAI', 'Washington Redskins': 'WAS', 'Buffalo Bills': 'BUF',
-                     'Jacksonville Jaguars': 'JAX', 'Arizona Cardinals': 'CRD', 'Denver Broncos': 'DEN',
-                     'Dallas Cowboys': 'DAL', 'New York Jets': 'NYJ'
-                     }
+        with open('teamdictjson.txt') as json_file:
+            team_dict = json.load(json_file)
 
         # GUI ELEMENTS
         self.select_team_label = Label(master, text="Select a team:")
-        self.team_combo = Combobox(master, values=list(team_dict.keys()))
+        self.team_combo = Combobox(master, values=list(sorted(team_dict.keys())))
         self.year_label = Label(master, text="Enter a year:")
         self.year_entry = Entry(master, width=4)
 
@@ -95,8 +85,7 @@ class NflStatsGUI:
         self.win_probability_week_entry.grid(row=7, column=1)
         self.win_probability_button.grid(row=7, column=2)
         self.output_text.grid(row=8, column=1)
-        self.scroll.grid(row=8, column=2, sticky=N+S+W)
-
+        self.scroll.grid(row=8, column=2, sticky=N + S + W)
 
     def schedule(self, teamname, year, team_dict):
         team_abbrev = ''
@@ -249,40 +238,12 @@ class NflStatsGUI:
             home_probability = round(100 * (1 / ((math.pow(10, -elo_difference / 400)) + 1)), 2)
             away_probability = round(100 - home_probability, 2)
             self.output_text.insert("end-1c", '{:24s}{:5}\n{:24s}{:5}\nElo-based Spread: {:3}\n\n'.format(away_team,
-                                                                                    away_probability,
-                                                                                    home_team, home_probability,
-                                                                                    spread))
+                                                                                                away_probability,
+                                                                                                home_team,
+                                                                                                home_probability,
+                                                                                                spread))
 
 
 root = Tk()
 my_gui = NflStatsGUI(root)
 root.mainloop()
-
-######################################################################################
-# Adds teams and their total yards to a dictionary and prints them in ordered form
-######################################################################################
-# from sportsreference.nfl.teams import Teams
-# Ordered = {}
-# for team in Teams('2018'):
-#     Ordered[team.yards] = team.name
-#
-# for key in sorted(Ordered.keys(), reverse=True):
-#     print(str(key) + ' ' + Ordered[key])
-
-
-# from sportsreference.nfl.teams import Teams
-# from sportsreference.nfl.roster import Player
-#
-# for team in Teams('2018'):
-#     for player in team.roster.players(slim=False):
-#         for i in player:
-#             plyr = Player(i.player_id)
-#             # if plyr.passing_yards > 100:
-#             #     print(plyr.name + plyr.passing_yards)
-#             print(plyr.name + str(plyr.passing_yards))
-
-# from sportsreference.nfl.roster import Player
-#
-# sqn = Player('ZuerGr00')
-# print(sqn.fourty_to_fourty_nine_yard_field_goal_attempts)
-# print(sqn.fourty_to_fourty_nine_yard_field_goals_made)
