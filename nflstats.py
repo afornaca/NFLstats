@@ -2,8 +2,6 @@ import math
 import json
 import xlsxwriter
 import pandas
-import xlrd
-from xlsxwriter import Workbook
 from collections import OrderedDict
 from tkinter import *
 from tkinter.ttk import *
@@ -12,18 +10,8 @@ from sportsreference.nfl.teams import Teams
 from sportsreference.nfl.schedule import Schedule
 from sportsreference.nfl.boxscore import Boxscores
 from sportsreference.nfl.boxscore import Boxscore
-
+import team_object as teamobj
 team_elo_list = []
-
-
-class NflTeam:
-    name = ""
-    abbrev = ""
-    elo = 1500
-
-    def __init__(self, name, abbreviation):
-        self.name = name
-        self.abbreviation = abbreviation
 
 
 class NflStatsGUI:
@@ -101,7 +89,6 @@ class NflStatsGUI:
     def week_schedule(self, year, week, team_dict):
         winner_name = ""
         loser_name = ""
-        week = 0
         p = re.compile("'(\\d{4}\\d+\\w+)'")
         selected_week = Boxscores(week, year)
         game_codes = p.findall(str(selected_week.games.values()))
@@ -133,7 +120,7 @@ class NflStatsGUI:
         team_objects = {}
         self.output_text.delete(1.0, "end-1c")
         for name, abbrev in team_dict.items():
-            new_team = NflTeam(name, abbrev)
+            new_team = teamobj.NflTeam(name, abbrev)
             team_objects.update({abbrev: new_team})
         for year in range(start_year, end_year + 1):
             # Initialize new excel sheet
