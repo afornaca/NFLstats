@@ -75,13 +75,13 @@ class NflStatsGUI:
         self.output_text.grid(row=8, column=1)
         self.scroll.grid(row=8, column=2, sticky=N + S + W)
 
-    def schedule(self, teamname, year, team_dict):
+    def schedule(self, team_name, year, team_dict):
         team_abbrev = ''
         for key, value in team_dict.items():
-            if key == teamname:
+            if key == team_name:
                 team_abbrev = team_dict[key]
         self.output_text.delete(1.0, "end-1c")
-        self.output_text.insert("end-1c", teamname + " " + year + " Schedule:\n")
+        self.output_text.insert("end-1c", team_name + " " + year + " Schedule:\n")
         team_schedule = Schedule(team_abbrev, year)
         for game in team_schedule:
             self.output_text.insert("end-1c", '{:15s} {:24s}\n'.format(game.date + ":", game.opponent_name))
