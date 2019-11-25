@@ -20,8 +20,10 @@ class NflStatsGUI:
         master.title("STILL TESTING STUFF OUT :)")
         master.geometry("700x900")
 
+        # dictionaries for retrieving DB lookup abbreviation or team name when given the opposite
         with open('teamdictjson.txt') as json_file:
             team_dict = json.load(json_file)
+        abbrev_dict = {val: key for key, val in team_dict.items()}
 
         # GUI ELEMENTS
         self.select_team_label = Label(master, text="Select a team:")
@@ -32,13 +34,12 @@ class NflStatsGUI:
         self.sched_button = Button(master, text="Get Schedule", command=lambda: self.schedule(self.team_combo.get(),
                                                                                               self.year_entry.get(),
                                                                                               team_dict))
-        self.select_week = Button(master, text="WEEK TEST", command=lambda: self.week_schedule(2018, 1, team_dict))
         self.elo_startyear_label = Label(master, text="Start Year:")
         self.elo_startyear_entry = Entry(master, width=4)
         self.elo_endyear_label = Label(master, text="End Year:")
         self.elo_endyear_entry = Entry(master, width=4)
         self.calculate_elo_button = Button(master, text="Calculate Elo",
-                                           command=lambda: self.calculate_elo(team_dict,
+                                           command=lambda: self.calculate_elo(team_dict, abbrev_dict,
                                                                               self.elo_startyear_entry.get(),
                                                                               self.elo_endyear_entry.get(),
                                                                               self.elo_endweek_entry.get()))
@@ -61,52 +62,28 @@ class NflStatsGUI:
         self.year_label.grid(row=1, column=0, sticky=W)
         self.year_entry.grid(row=1, column=1, sticky=W)
         self.sched_button.grid(row=2, column=0, sticky=W)
-        self.select_week.grid(row=3, column=0)
-        self.elo_startyear_label.grid(row=4, column=0)
+        self.elo_startyear_label.grid(row=4, column=0, sticky=W)
         self.elo_startyear_entry.grid(row=4, column=1, sticky=W)
-        self.elo_endyear_label.grid(row=5, column=0)
+        self.elo_endyear_label.grid(row=5, column=0, sticky=W)
         self.elo_endyear_entry.grid(row=5, column=1, sticky=W)
-        self.elo_endweek_label.grid(row=5, column=2, sticky=W)
-        self.elo_endweek_entry.grid(row=5, column=3)
-        self.calculate_elo_button.grid(row=6, column=0, sticky=E)
-        self.win_probability_week_label.grid(row=7, column=0, sticky=W)
-        self.win_probability_week_entry.grid(row=7, column=1)
-        self.win_probability_button.grid(row=7, column=2)
-        self.output_text.grid(row=8, column=1)
-        self.scroll.grid(row=8, column=2, sticky=N + S + W)
+        self.elo_endweek_label.grid(row=6, column=0, sticky=W)
+        self.elo_endweek_entry.grid(row=6, column=1, sticky=W)
+        self.calculate_elo_button.grid(row=7, column=0, sticky=W)
+        self.win_probability_week_label.grid(row=8, column=0, sticky=W)
+        self.win_probability_week_entry.grid(row=8, column=1, sticky=W)
+        self.win_probability_button.grid(row=9, column=0, sticky=W)
+        self.output_text.grid(row=10, column=1)
+        self.scroll.grid(row=10, column=2, sticky=N + S + W)
 
     def schedule(self, team_name, year, team_dict):
-        team_abbrev = ''
-        for key, value in team_dict.items():
-            if key == team_name:
-                team_abbrev = team_dict[key]
+        team_abbrev = team_dict[team_name]
         self.output_text.delete(1.0, "end-1c")
         self.output_text.insert("end-1c", team_name + " " + year + " Schedule:\n")
         team_schedule = Schedule(team_abbrev, year)
         for game in team_schedule:
             self.output_text.insert("end-1c", '{:15s} {:24s}\n'.format(game.date + ":", game.opponent_name))
 
-    def week_schedule(self, year, week, team_dict):
-        winner_name = ""
-        loser_name = ""
-        p = re.compile("'(\\d{4}\\d+\\w+)'")
-        selected_week = Boxscores(week, year)
-        game_codes = p.findall(str(selected_week.games.values()))
-
-        self.output_text.delete(1.0, "end-1c")
-        for code in game_codes:
-            game_data = Boxscore(code)
-            for name, abbrev in team_dict.items():
-                if abbrev == game_data.winning_abbr:
-                    winner_name = name
-            for name, abbrev in team_dict.items():
-                if abbrev == game_data.losing_abbr:
-                    loser_name = name
-            self.output_text.insert("end-1c", winner_name + " " + str(game_data.home_points) + " " +
-                                    loser_name + " " + str(game_data.away_points) + "\n")
-
-    def calculate_elo(self, team_dict, start_year, end_year, end_week):
-        # CONSTANT K FOR ELO ALGO
+    def calculate_elo(self, team_dict, abbrev_dict, start_year, end_year, end_week):
         endw = 22
         week = 1
         excel_name = 'NFLelo' + start_year + '-' + end_year + 'week' + end_week + '.xlsx'
@@ -115,6 +92,7 @@ class NflStatsGUI:
         start_year = int(start_year)
         end_year = int(end_year)
 
+        # CONSTANT K FOR ELO ALGO
         k = 30
         p = re.compile("'(\\d{4}\\d+\\w+)'")
         team_objects = {}
@@ -160,6 +138,7 @@ class NflStatsGUI:
                     print(winner.name, str(welo))
                     print(loser.name, str(lelo))
 
+            # update elo at end of year to regress 1/3 to mean
             if year == end_year and week == 21:
                 for abbrev, team in team_objects.items():
                     team.elo = team.elo * (2 / 3) + 1500 * (1 / 3)
@@ -180,10 +159,9 @@ class NflStatsGUI:
         rank = 1
         newdict = OrderedDict(sorted(team_objects.items(), key=lambda x: x[1].elo, reverse=True))
         for abv, tobj in newdict.items():
-            for name, ab in team_dict.items():
-                if ab == abv:
-                    self.output_text.insert("end-1c", '{:4s}{:24s}{:9s}\n'.format(str(rank) + '.', name, str(tobj.elo)))
-                    rank = rank + 1
+            name = abbrev_dict[abv]
+            self.output_text.insert("end-1c", '{:4s}{:24s}{:9s}\n'.format(str(rank) + '.', name, str(tobj.elo)))
+            rank = rank + 1
 
         # Close Excel Workbook
         wb.close()
@@ -195,7 +173,7 @@ class NflStatsGUI:
         self.output_text.delete(1.0, "end-1c")
         home_team = ""
         away_team = ""
-        data = pandas.read_excel(r'NFLelo2015-2019week1.xlsx', sheet_name='2019')
+        data = pandas.read_excel(r'NFLelo2015-2019week5.xlsx', sheet_name='2019')
         df = pandas.DataFrame(data, columns=['Team', 'Elo Rating'])
         ratings_dict = dict(zip(df['Team'], df['Elo Rating']))
 
