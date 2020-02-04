@@ -11,8 +11,36 @@ from sportsreference.nfl.schedule import Schedule
 from sportsreference.nfl.boxscore import Boxscores
 from sportsreference.nfl.boxscore import Boxscore
 import team_object as teamobj
-team_elo_list = []
 
+team_elo_list = []
+# dictionaries for retrieving DB lookup abbreviation or team name when given the opposite
+with open('miscjson.txt') as file:
+    data = json.load(file)
+team_dict = data['teamdict']
+abbrev_dict = {val: key for key, val in team_dict.items()}
+
+'''
+FUNCTIONS TO BE TESTED -- using Pytest
+'''
+def sched(name, year):
+    games_print = OrderedDict()
+    team_abbrev = team_dict[name]
+    team_schedule = Schedule(team_abbrev, year)
+    for game in team_schedule:
+        games_print[game.date] = game.opponent_name
+    return games_print
+
+
+def elo_regression(teams):
+    for abbrev, team in teams.items():
+        team.elo = team.elo * (2 / 3) + 1500 * (1 / 3)
+    return teams
+
+
+def get_game_codes(week, year):
+    p = re.compile("'(\\d{4}\\d+\\w+)'")
+    selected_week = Boxscores(int(week), year)
+    return p.findall(str(selected_week.games.values()))
 
 class NflStatsGUI:
     def __init__(self, master):
@@ -20,20 +48,14 @@ class NflStatsGUI:
         master.title("STILL TESTING STUFF OUT :)")
         master.geometry("700x900")
 
-        # dictionaries for retrieving DB lookup abbreviation or team name when given the opposite
-        with open('teamdictjson.txt') as json_file:
-            team_dict = json.load(json_file)
-        abbrev_dict = {val: key for key, val in team_dict.items()}
-
-        # GUI ELEMENTS
+        ''' GUI ELEMENTS'''
         self.select_team_label = Label(master, text="Select a team:")
         self.team_combo = Combobox(master, values=list(sorted(team_dict.keys())))
         self.year_label = Label(master, text="Enter a year:")
         self.year_entry = Entry(master, width=4)
 
         self.sched_button = Button(master, text="Get Schedule", command=lambda: self.schedule(self.team_combo.get(),
-                                                                                              self.year_entry.get(),
-                                                                                              team_dict))
+                                                                                              self.year_entry.get()))
         self.elo_startyear_label = Label(master, text="Start Year:")
         self.elo_startyear_entry = Entry(master, width=4)
         self.elo_endyear_label = Label(master, text="End Year:")
@@ -56,7 +78,7 @@ class NflStatsGUI:
         self.output_text.config(yscrollcommand=self.scroll.set)
         self.scroll.config(command=self.output_text.yview)
 
-        # GRID LAYOUT
+        '''GRID LAYOUT'''
         self.select_team_label.grid(row=0, column=0, sticky=W)
         self.team_combo.grid(row=0, column=1, sticky=W)
         self.year_label.grid(row=1, column=0, sticky=W)
@@ -75,13 +97,12 @@ class NflStatsGUI:
         self.output_text.grid(row=10, column=1)
         self.scroll.grid(row=10, column=2, sticky=N + S + W)
 
-    def schedule(self, team_name, year, team_dict):
-        team_abbrev = team_dict[team_name]
+    def schedule(self, team_name, year):
+        games = sched(team_name, year)
         self.output_text.delete(1.0, "end-1c")
         self.output_text.insert("end-1c", team_name + " " + year + " Schedule:\n")
-        team_schedule = Schedule(team_abbrev, year)
-        for game in team_schedule:
-            self.output_text.insert("end-1c", '{:15s} {:24s}\n'.format(game.date + ":", game.opponent_name))
+        for date, opponent in games.items():
+            self.output_text.insert('end-1c', '{:15s} {:24s}\n'.format(date + ":", opponent))
 
     def calculate_elo(self, team_dict, abbrev_dict, start_year, end_year, end_week):
         endw = 22
@@ -110,10 +131,9 @@ class NflStatsGUI:
             sheet.write(0, 2, "Wins")
             sheet.write(0, 3, "Losses")
 
-            for abbrev, team in team_objects.items():
-                if year > start_year:
-                    team.elo = team.elo * (2 / 3) + 1500 * (1 / 3)
-                    print("############", team.name, str(team.elo), "########")
+            if year > start_year:
+                team_objects = elo_regression(team_objects)
+
             # will iterate through weeks 1-21
             if year == end_year:
                 endw = int(end_week) + 1
@@ -140,8 +160,7 @@ class NflStatsGUI:
 
             # update elo at end of year to regress 1/3 to mean
             if year == end_year and week == 21:
-                for abbrev, team in team_objects.items():
-                    team.elo = team.elo * (2 / 3) + 1500 * (1 / 3)
+                team_objects = elo_regression(team_objects)
 
             n = 1
             excel_dict = OrderedDict(sorted(team_objects.items(), key=lambda x: x[1].elo, reverse=True))
@@ -150,18 +169,20 @@ class NflStatsGUI:
                     if ab == abv:
                         sheet.write(n, 0, name)
                         sheet.write(n, 1, tobj.elo)
-                        for team in Teams(year):
-                            if team.abbreviation == abv:
-                                sheet.write(n, 2, team.wins)
-                                sheet.write(n, 3, team.losses)
+                        # SportsReference Library Team Lookups is Currently Broken as of 11/25/19
+                        # for team in Teams(year):
+                        #     if team.abbreviation == abv:
+                        #         sheet.write(n, 2, team.wins)
+                        #         sheet.write(n, 3, team.losses)
                         n = n + 1
 
-        rank = 1
-        newdict = OrderedDict(sorted(team_objects.items(), key=lambda x: x[1].elo, reverse=True))
-        for abv, tobj in newdict.items():
-            name = abbrev_dict[abv]
-            self.output_text.insert("end-1c", '{:4s}{:24s}{:9s}\n'.format(str(rank) + '.', name, str(tobj.elo)))
-            rank = rank + 1
+        # SportsReference Library Team Lookups is Currently Broken as of 11/25/19
+        # rank = 1
+        # newdict = OrderedDict(sorted(team_objects.items(), key=lambda x: x[1].elo, reverse=True))
+        # for abv, tobj in newdict.items():
+        #     name = abbrev_dict[abv]
+        #     self.output_text.insert("end-1c", '{:4s}{:24s}{:9s}\n'.format(str(rank) + '.', name, str(tobj.elo)))
+        #     rank = rank + 1
 
         # Close Excel Workbook
         wb.close()
@@ -171,15 +192,14 @@ class NflStatsGUI:
 
     def generate_probabilities(self, week, team_dict):
         self.output_text.delete(1.0, "end-1c")
+        year = 2019
         home_team = ""
         away_team = ""
         data = pandas.read_excel(r'NFLelo2015-2019week5.xlsx', sheet_name='2019')
         df = pandas.DataFrame(data, columns=['Team', 'Elo Rating'])
         ratings_dict = dict(zip(df['Team'], df['Elo Rating']))
 
-        p = re.compile("'(\\d{4}\\d+\\w+)'")
-        selected_week = Boxscores(int(week), 2019)
-        game_codes = p.findall(str(selected_week.games.values()))
+        game_codes = get_game_codes(week, year)
 
         for game in game_codes:
             box = Boxscore(game)
@@ -202,11 +222,8 @@ class NflStatsGUI:
 
             home_probability = round(100 * (1 / ((math.pow(10, -elo_difference / 400)) + 1)), 2)
             away_probability = round(100 - home_probability, 2)
-            self.output_text.insert("end-1c", '{:24s}{:5}\n{:24s}{:5}\nElo-based Spread: {:3}\n\n'.format(away_team,
-                                                                                                away_probability,
-                                                                                                home_team,
-                                                                                                home_probability,
-                                                                                                spread))
+            self.output_text.insert("end-1c", '{:24s}{:5}\n{:24s}{:5}\nElo-based Spread: {:3}\n\n'
+                                    .format(away_team, away_probability, home_team, home_probability, spread))
 
 
 root = Tk()
